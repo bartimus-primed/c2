@@ -36,8 +36,8 @@ func main() {
 	// vars for each tab since we might need to pass them around
 	connectedBeacons[""] = []string{}
 	home_tab := lib.Get_Home_Tab()
-	beacons_tab := lib.Get_Beacons_Tab(c2_status, app_status, connectedBeacons)
-	c2_tab := lib.Get_C2_Tab(c2_status, app_status, connectedBeacons, beacons_tab)
+	beacons_tab := lib.Get_Beacons_Tab(c2_status, app_status)
+	c2_tab := lib.Get_C2_Tab(c2_status, app_status)
 	settings_tab := lib.Get_Settings_Tab(c2_status, app_status)
 	tabs := container.NewAppTabs(home_tab, c2_tab, beacons_tab, settings_tab)
 

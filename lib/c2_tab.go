@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
@@ -21,7 +20,7 @@ var serverOutput = make(chan string)
 var isRunning = false
 
 // Main Page Layout
-func Get_C2_Tab(c2_status binding.String, app_status binding.String, connectedBeacons map[string][]string, beacon_tab *container.TabItem) *container.TabItem {
+func Get_C2_Tab(c2_status binding.String, app_status binding.String) *container.TabItem {
 	default_port.Set(50555)
 	listening_port := widget.NewEntryWithData(binding.IntToString(default_port))
 	listening_port_label := widget.NewLabel("Listen on Port:")
@@ -44,19 +43,17 @@ func Get_C2_Tab(c2_status binding.String, app_status binding.String, connectedBe
 						app_status.Set("C2 Server Closed")
 					default:
 						beacon_info := strings.Split(a, ",")
-						beacon_ip := strings.Split(beacon_info[0], ":")[0]
+						beacon_ip_port := beacon_info[0]
 						beacon_status := beacon_info[1]
-						app_status.Set(fmt.Sprintf("Received Beacon From: %s", beacon_ip))
-						if connectedBeacons[beacon_ip] != nil {
-							if beacon_status == "dead" {
-								app_status.Set(fmt.Sprintf("%s Died", beacon_ip))
-							}
-							connectedBeacons[beacon_ip] = append(connectedBeacons[beacon_ip], beacon_status)
-						} else {
-							connectedBeacons[""] = append(connectedBeacons[""], beacon_ip)
-							connectedBeacons[beacon_ip] = []string{beacon_status}
+						beacon_ip := strings.Split(beacon_ip_port, ":")[0]
+						beacon_port := strings.Split(beacon_ip_port, ":")[1]
+						switch beacon_status {
+						case "beacon":
+							app_status.Set(fmt.Sprintf("Received Beacon From: %s", beacon_ip))
+						case "kill":
+							app_status.Set(fmt.Sprintf("%s Died", beacon_ip))
 						}
-						beacon_tab.Content.Refresh()
+						Add_Beacon(beacon_ip, beacon_port, beacon_status)
 					}
 				}
 			}()
@@ -107,10 +104,9 @@ func start_c2_server() {
 		beacon_ip := remoteAddress
 		switch mesg {
 		case "beacon\n":
-			beacon_time := time.Now()
-			serverOutput <- fmt.Sprintf("%s,%s", beacon_ip, beacon_time)
+			serverOutput <- fmt.Sprintf("%s,%s", beacon_ip, "beacon")
 		case "kill\n":
-			serverOutput <- fmt.Sprintf("%s,dead", beacon_ip)
+			serverOutput <- fmt.Sprintf("%s,%s", beacon_ip, "kill")
 		case "exit\n":
 			connection.Close()
 		}
