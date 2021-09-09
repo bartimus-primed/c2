@@ -29,7 +29,7 @@ func main() {
 	c2_status.Set("Not Running...")
 	app_status.Set("GHOST v0.1")
 	myWindow.CenterOnScreen()
-	myWindow.SetFullScreen(true)
+	// myWindow.SetFullScreen(true)
 
 	// Set Tabs for Navigation
 	// Add Tabs to Tab Bar
