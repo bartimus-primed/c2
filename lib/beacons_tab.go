@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -25,14 +26,13 @@ func Add_Beacon(ip string, port string, status string) {
 	beacon := beacon_map[ip]
 	// Does the beacon exist? If not create one.
 	if beacon == nil {
-		beacon = NewImplantWidget(ip, "")
+		fmt.Println("Beacon is nil")
+		beacon = NewImplantWidget(ip)
 		beacon.Update_Field("Last_Check_In", time.Now().Format(time.RFC3339))
 		beacon_map[ip] = beacon
 		beacon_container.Add(beacon)
 	}
 	beacon.Update_Field("Port", port)
-	beacon.Update_Field("Detected_Interval", "Unknown")
-	beacon.Update_Field("Next_Command_Time", "unknown")
 	switch status {
 	case "beacon":
 		beacon.Update_Field("Alive", "true")
@@ -40,9 +40,7 @@ func Add_Beacon(ip string, port string, status string) {
 	case "kill":
 		beacon.Update_Field("Alive", "false")
 		// beacon.SetSubTitle("died")
-	default:
-		beacon.Update_Field("Alive", "unknown")
-		// beacon.SetSubTitle("unknown")
 	}
 	beacon.Update_Field("Last_Check_In", time.Now().Format(time.RFC3339))
+	beacon.Refresh()
 }
