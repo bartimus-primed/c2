@@ -9,9 +9,10 @@ import (
 // Main Page Layout
 func Get_Home_Tab() *container.TabItem {
 	changelog_map := map[string][]string{}
-	changelog_map[""] = []string{"Change Log", "V0.1", "V0.2"}
+	changelog_map[""] = []string{"Change Log", "V0.1", "V0.2", "V0.3"}
 	changelog_map["V0.1"] = []string{"GUI Access", "Working C2 Start", "Working Beacon Listing"}
-	changelog_map["V0.2"] = []string{"Coming Soon..."}
+	changelog_map["V0.2"] = []string{"Custom Beacon widget"}
+	changelog_map["V0.3"] = []string{"Coming Soon..."}
 	changelog_list := widget.NewTreeWithStrings(changelog_map)
 	home_container := container.NewMax(changelog_list)
 	changelog_list.Refresh()

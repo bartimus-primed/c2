@@ -27,7 +27,7 @@ func main() {
 
 	// Set Default Statuses
 	c2_status.Set("Not Running...")
-	app_status.Set("GHOST v0.1")
+	app_status.Set("GHOST v0.2")
 	myWindow.CenterOnScreen()
 	// myWindow.SetFullScreen(true)
 

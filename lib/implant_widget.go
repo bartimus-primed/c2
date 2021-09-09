@@ -26,6 +26,7 @@ type ImplantWidget struct {
 }
 
 type implantWidgetRenderer struct {
+	background            *canvas.Rectangle
 	ip                    *canvas.Text
 	port                  *canvas.Text
 	last_check_in         *canvas.Text
@@ -43,9 +44,13 @@ type implantWidgetRenderer struct {
 }
 
 func (i *implantWidgetRenderer) Refresh() {
-	i.ip.Text = i.implantWidget.IP
 	i.port.Text = strconv.Itoa(i.implantWidget.Port)
 	i.last_check_in.Text = i.implantWidget.Last_Check_In
+	if i.implantWidget.Alive {
+		i.alive.Color = theme.PrimaryColorNamed("green")
+	} else {
+		i.alive.Color = theme.ErrorColor()
+	}
 	i.alive.Text = strconv.FormatBool(i.implantWidget.Alive)
 	i.detected_interval.Text = i.implantWidget.Detected_Interval
 	i.next_command_time.Text = i.implantWidget.Next_Command_Time
@@ -70,6 +75,14 @@ func align_label_field(lbl *canvas.Text, val *canvas.Text, pos *fyne.Position) {
 }
 func (i *implantWidgetRenderer) Layout(size fyne.Size) {
 	pos := fyne.NewPos(theme.Padding()/2, theme.Padding()/2)
+	// Setup Background
+	i.background.StrokeColor = theme.ShadowColor()
+	i.background.StrokeWidth = 2
+	i.background.Move(pos)
+	size.Width += 5
+	i.background.Resize(size)
+	pos.X += 5
+	pos.Y += 5
 	// Detect biggest label
 	for _, o := range i.Objects() {
 		if o.MinSize().Width > biggest_label {
@@ -84,7 +97,9 @@ func (i *implantWidgetRenderer) Layout(size fyne.Size) {
 	align_label_field(i.lbl_next_command_time, i.next_command_time, &pos)
 }
 func (i *implantWidgetRenderer) MinSize() fyne.Size {
-	return fyne.NewSize(100, 100)
+	amount_width := (biggest_label * 2) + theme.Padding()
+	amount_height := (i.lbl_ip.MinSize().Height + theme.Padding()) * 6
+	return fyne.NewSize(amount_width+10, amount_height)
 }
 func NewImplantWidget(ip string) *ImplantWidget {
 	implantwidget := &ImplantWidget{
@@ -102,18 +117,26 @@ func NewImplantWidget(ip string) *ImplantWidget {
 func (i *ImplantWidget) CreateRenderer() fyne.WidgetRenderer {
 	i.ExtendBaseWidget(i)
 	IP := canvas.NewText(i.IP, theme.ForegroundColor())
+	IP.TextSize = 15
 	Port := canvas.NewText(strconv.Itoa(i.Port), theme.ForegroundColor())
+	Port.TextSize = 15
 	Last_Check_In := canvas.NewText(i.Last_Check_In, theme.ForegroundColor())
+	Last_Check_In.TextSize = 15
 	Alive := canvas.NewText(strconv.FormatBool(i.Alive), theme.ForegroundColor())
+	Alive.TextSize = 15
 	Detected_Interval := canvas.NewText(i.Detected_Interval, theme.ForegroundColor())
+	Detected_Interval.TextSize = 15
 	Next_Command_Time := canvas.NewText(i.Next_Command_Time, theme.ForegroundColor())
+	Next_Command_Time.TextSize = 15
 	lbl_ip := canvas.NewText("IP Address:", theme.ForegroundColor())
 	lbl_last_check_in := canvas.NewText("Last Check In:", theme.ForegroundColor())
 	lbl_alive := canvas.NewText("Alive?", theme.ForegroundColor())
 	lbl_detected_interval := canvas.NewText("Detected Interval:", theme.ForegroundColor())
 	lbl_port := canvas.NewText("Port:", theme.ForegroundColor())
 	lbl_next_command_time := canvas.NewText("Next Command Time:", theme.ForegroundColor())
+	BACKGROUND := canvas.NewRectangle(theme.HoverColor())
 	r_o := []fyne.CanvasObject{
+		BACKGROUND,
 		lbl_ip,
 		IP,
 		lbl_port,
@@ -128,6 +151,7 @@ func (i *ImplantWidget) CreateRenderer() fyne.WidgetRenderer {
 		Next_Command_Time}
 
 	r := &implantWidgetRenderer{
+		background:            BACKGROUND,
 		ip:                    IP,
 		last_check_in:         Last_Check_In,
 		alive:                 Alive,
