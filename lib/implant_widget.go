@@ -2,12 +2,13 @@ package lib
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -23,6 +24,8 @@ type ImplantWidget struct {
 	Alive             bool
 	Detected_Interval string
 	Next_Command_Time string
+	check_in_history  []string
+	popper            *widget.PopUp
 }
 
 type implantWidgetRenderer struct {
@@ -177,36 +180,66 @@ func (i *ImplantWidget) MinSize() fyne.Size {
 
 // Update_Field allows you the program to update each field, it also auto calculates the detected interval and sets the next time which the implant will listen for commands
 // TODO: #1 Need to calculate an average, to better predict the interval, this should help latency issues.
-func (t *ImplantWidget) Update_Field(field string, value string) {
+func (i *ImplantWidget) Update_Field(field string, value string) {
 	switch field {
 	case "Last_Check_In":
-		old_time, e := time.Parse(time.RFC3339, t.Last_Check_In)
+		old_time, e := time.Parse(time.RFC3339, i.Last_Check_In)
+		i.check_in_history = append(i.check_in_history, i.Last_Check_In)
 		if e != nil {
-			t.Detected_Interval = "Unknown"
+			i.Detected_Interval = "Unknown"
 		} else {
 			time_diff := time.Since(old_time)
 			halved, _ := time.ParseDuration(fmt.Sprintf("%fs", time_diff.Seconds()/2))
 			next_time_division := time.Now().Add(halved)
-			t.Detected_Interval = time_diff.Truncate(time.Millisecond).Round(time.Second).String()
-			t.Next_Command_Time = next_time_division.Format(time.RFC3339)
+			i.Detected_Interval = time_diff.Truncate(time.Millisecond).Round(time.Second).String()
+			i.Next_Command_Time = next_time_division.Format(time.RFC3339)
 		}
-		t.Last_Check_In = value
+		i.Last_Check_In = value
 	case "Alive":
 		switch value {
 		case "true":
-			t.Alive = true
+			i.Alive = true
 		case "false":
-			t.Alive = false
+			i.Alive = false
 		default:
 			fmt.Println("Unknown Value for Alive true/false")
 		}
 	case "Port":
 		port, _ := strconv.Atoi(value)
-		t.Port = port
+		i.Port = port
 	}
 }
 
 //TODO: #2 Handle modal details to interact with implant
-func (t *ImplantWidget) Tapped(_ *fyne.PointEvent) {
-	log.Println("I have been tapped")
+func (i *ImplantWidget) Tapped(_ *fyne.PointEvent) {
+	max_con := container.NewVBox()
+	i.Build_Popup(max_con)
+	m_can := fyne.CurrentApp().Driver().CanvasForObject(i)
+	i.popper = widget.NewModalPopUp(max_con, m_can)
+	i.popper.Show()
+}
+
+func (i *ImplantWidget) History() int {
+	return len(i.check_in_history)
+}
+func (i *ImplantWidget) Create_Item() fyne.CanvasObject {
+	return widget.NewLabel("0000000000000000000000000000")
+}
+func (i *ImplantWidget) Update_Item(item int, lbl fyne.CanvasObject) {
+	if l, ok := lbl.(*widget.Label); ok {
+		l.Text = i.check_in_history[item]
+	}
+}
+func (i *ImplantWidget) Build_Popup(cont *fyne.Container) {
+	exit_button := widget.NewButtonWithIcon("Go Back", theme.CancelIcon(), i.Close_Popup)
+	go_button := widget.NewButtonWithIcon("Go Hands On", theme.ComputerIcon(), func() { fmt.Println("GOING HANDS ON!") })
+	list_of_times := widget.NewList(i.History, i.Create_Item, i.Update_Item)
+	lbl_check_in := widget.NewLabel("Check In History:")
+	cont.Add(container.NewVBox(lbl_check_in, list_of_times))
+	cont.Add(layout.NewSpacer())
+	cont.Add(container.NewHBox(go_button, layout.NewSpacer(), exit_button))
+}
+
+func (i *ImplantWidget) Close_Popup() {
+	i.popper.Hide()
 }
