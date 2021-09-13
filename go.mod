@@ -1,4 +1,4 @@
-module c2
+module github.com/bartimus-primed/ghost/c2
 
 go 1.17
 

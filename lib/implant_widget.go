@@ -212,10 +212,7 @@ func (i *ImplantWidget) Update_Field(field string, value string) {
 
 //TODO: #2 Handle modal details to interact with implant
 func (i *ImplantWidget) Tapped(_ *fyne.PointEvent) {
-	max_con := container.NewVBox()
-	i.Build_Popup(max_con)
-	m_can := fyne.CurrentApp().Driver().CanvasForObject(i)
-	i.popper = widget.NewModalPopUp(max_con, m_can)
+	i.Build_Popup()
 	i.popper.Show()
 }
 
@@ -230,14 +227,18 @@ func (i *ImplantWidget) Update_Item(item int, lbl fyne.CanvasObject) {
 		l.Text = i.check_in_history[item]
 	}
 }
-func (i *ImplantWidget) Build_Popup(cont *fyne.Container) {
+func (i *ImplantWidget) Build_Popup() {
+	max_con := container.NewCenter()
+	m_can := fyne.CurrentApp().Driver().CanvasForObject(i)
+	m_can.Content().Resize(fyne.NewSize(biggest_label*1.2, biggest_label*1.1))
+	i.popper = widget.NewModalPopUp(max_con, m_can)
 	exit_button := widget.NewButtonWithIcon("Go Back", theme.CancelIcon(), i.Close_Popup)
 	go_button := widget.NewButtonWithIcon("Go Hands On", theme.ComputerIcon(), func() { fmt.Println("GOING HANDS ON!") })
 	list_of_times := widget.NewList(i.History, i.Create_Item, i.Update_Item)
 	lbl_check_in := widget.NewLabel("Check In History:")
-	cont.Add(container.NewVBox(lbl_check_in, list_of_times))
-	cont.Add(layout.NewSpacer())
-	cont.Add(container.NewHBox(go_button, layout.NewSpacer(), exit_button))
+	max_con.Add(lbl_check_in)
+	max_con.Add(list_of_times)
+	max_con.Add(container.NewHBox(go_button, layout.NewSpacer(), exit_button))
 }
 
 func (i *ImplantWidget) Close_Popup() {
