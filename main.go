@@ -1,7 +1,6 @@
 package main
 
 import (
-	"c2/lib"
 	"image/color"
 
 	"fyne.io/fyne/v2"
@@ -12,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/bartimus-primed/c2/lib"
 )
 
 var app_status = binding.NewString()
