@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -18,14 +17,20 @@ var biggest_label float32 = 0
 // ImplantWidget the default widget for each implant that calls back
 type ImplantWidget struct {
 	widget.BaseWidget
-	IP                string
-	Port              int
-	Last_Check_In     string
-	Alive             bool
-	Detected_Interval string
-	Next_Command_Time string
-	check_in_history  []string
-	popper            *widget.PopUp
+	IP                   string
+	Port                 int
+	Last_Check_In        string
+	Alive                bool
+	Detected_Interval    string
+	Next_Command_Time    string
+	check_in_history     []string
+	command_history      map[string][]string
+	wind                 fyne.Window
+	hands_on_container   *fyne.Container
+	command_entry        *widget.Entry
+	btn_go_hands_on      *widget.Button
+	btn_run_command      *widget.Button
+	command_history_tree *widget.Tree
 }
 
 type implantWidgetRenderer struct {
@@ -112,6 +117,7 @@ func NewImplantWidget(ip string) *ImplantWidget {
 		Alive:             false,
 		Detected_Interval: "",
 		Next_Command_Time: "",
+		command_history:   map[string][]string{"": {}},
 	}
 
 	return implantwidget
@@ -212,11 +218,18 @@ func (i *ImplantWidget) Update_Field(field string, value string) {
 
 //TODO: #2 Handle modal details to interact with implant
 func (i *ImplantWidget) Tapped(_ *fyne.PointEvent) {
-	i.Build_Popup()
-	i.popper.Show()
+	go func() {
+		if i.wind != nil {
+			i.wind.Close()
+		}
+		i.wind = fyne.CurrentApp().NewWindow(fmt.Sprintf("%s: Beacon Information", i.IP))
+		i.wind.SetContent(i.Build_Popup())
+		i.wind.SetOnClosed(i.Close_Window)
+		i.wind.Show()
+	}()
 }
 
-func (i *ImplantWidget) History() int {
+func (i *ImplantWidget) Time_History() int {
 	return len(i.check_in_history)
 }
 func (i *ImplantWidget) Create_Item() fyne.CanvasObject {
@@ -227,20 +240,48 @@ func (i *ImplantWidget) Update_Item(item int, lbl fyne.CanvasObject) {
 		l.Text = i.check_in_history[item]
 	}
 }
-func (i *ImplantWidget) Build_Popup() {
-	max_con := container.NewCenter()
-	m_can := fyne.CurrentApp().Driver().CanvasForObject(i)
-	m_can.Content().Resize(fyne.NewSize(biggest_label*1.2, biggest_label*1.1))
-	i.popper = widget.NewModalPopUp(max_con, m_can)
-	exit_button := widget.NewButtonWithIcon("Go Back", theme.CancelIcon(), i.Close_Popup)
-	go_button := widget.NewButtonWithIcon("Go Hands On", theme.ComputerIcon(), func() { fmt.Println("GOING HANDS ON!") })
-	list_of_times := widget.NewList(i.History, i.Create_Item, i.Update_Item)
+
+func (i *ImplantWidget) Build_Popup() *fyne.Container {
+	exit_button := widget.NewButtonWithIcon("Go Back", theme.CancelIcon(), i.Close_Window)
+	i.btn_go_hands_on = widget.NewButtonWithIcon("Go Hands On", theme.ComputerIcon(), i.Go_HandsOn)
+	i.btn_go_hands_on.Importance = widget.MediumImportance
+	button_control_container := container.NewBorder(nil, nil, i.btn_go_hands_on, exit_button, i.btn_go_hands_on, exit_button)
+	list_of_times := widget.NewList(i.Time_History, i.Create_Item, i.Update_Item)
 	lbl_check_in := widget.NewLabel("Check In History:")
-	max_con.Add(lbl_check_in)
-	max_con.Add(list_of_times)
-	max_con.Add(container.NewHBox(go_button, layout.NewSpacer(), exit_button))
+	check_in_history_container := container.NewBorder(lbl_check_in, nil, nil, nil, lbl_check_in, list_of_times)
+	lbl_run_command := widget.NewLabel("Run Command:")
+	i.command_entry = widget.NewEntry()
+	i.btn_run_command = widget.NewButton("Run", i.Run_Command)
+	i.hands_on_container = container.NewBorder(nil, nil, lbl_run_command, i.btn_run_command, lbl_run_command, i.btn_run_command, i.command_entry)
+	i.hands_on_container.Hide()
+	i.command_history_tree = widget.NewTreeWithStrings(i.command_history)
+	command_output_container := container.NewBorder(nil, nil, nil, nil, i.command_history_tree)
+	// This holds the run button to communicate with the beacon, it also shows beacon output.
+	command_container := container.NewBorder(nil, i.hands_on_container, nil, nil, i.hands_on_container, command_output_container)
+	max_con := container.NewBorder(nil, button_control_container, check_in_history_container, nil, button_control_container, check_in_history_container, command_container)
+	return max_con
 }
 
-func (i *ImplantWidget) Close_Popup() {
-	i.popper.Hide()
+func (i *ImplantWidget) Go_HandsOn() {
+	if i.hands_on_container.Hidden {
+		i.hands_on_container.Show()
+		i.btn_go_hands_on.Text = "Hands Off"
+		i.btn_go_hands_on.Importance = widget.HighImportance
+	} else {
+		i.hands_on_container.Hide()
+		i.btn_go_hands_on.Text = "Go Hands On"
+		i.btn_go_hands_on.Importance = widget.MediumImportance
+	}
+	i.btn_go_hands_on.Refresh()
+}
+
+func (i *ImplantWidget) Run_Command() {
+	fmt.Println("Running command: ", i.command_entry.Text)
+	i.command_history[""] = append(i.command_history[""], i.command_entry.Text)
+	i.command_history[i.command_entry.Text] = []string{"Pending..."}
+	i.command_history_tree.Refresh()
+}
+
+func (i *ImplantWidget) Close_Window() {
+	i.wind.Close()
 }
