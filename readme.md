@@ -3,7 +3,7 @@
 * Simple UI
 * Cross Platform
 * [Integrated Beacons](https://github.com/bartimus-primed/implant)
-* Implants and Interactivity coming soon...
+* Interactivity coming soon...
 
 Uses the amazing [Fyne GUI](https://fyne.io/) for the UI.
 

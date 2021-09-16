@@ -10,6 +10,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	pb "github.com/bartimus-primed/proto/reverse/reverse_pb"
 )
 
 var biggest_label float32 = 0
@@ -17,20 +19,22 @@ var biggest_label float32 = 0
 // ImplantWidget the default widget for each implant that calls back
 type ImplantWidget struct {
 	widget.BaseWidget
-	IP                   string
-	Port                 int
-	Last_Check_In        string
-	Alive                bool
-	Detected_Interval    string
-	Next_Command_Time    string
-	check_in_history     []string
-	command_history      map[string][]string
-	wind                 fyne.Window
-	hands_on_container   *fyne.Container
-	command_entry        *widget.Entry
-	btn_go_hands_on      *widget.Button
-	btn_run_command      *widget.Button
-	command_history_tree *widget.Tree
+	IP                        string
+	Port                      int
+	Last_Check_In             string
+	Alive                     bool
+	Detected_Interval         string
+	Next_Command_Time         string
+	check_in_history          []string
+	command_history           map[string]string
+	commandChannel            chan *pb.Command
+	responseChannel           chan *pb.Response
+	wind                      fyne.Window
+	hands_on_container        *fyne.Container
+	command_entry             *widget.Entry
+	btn_go_hands_on           *widget.Button
+	btn_run_command           *widget.Button
+	command_history_accordian *widget.Accordion
 }
 
 type implantWidgetRenderer struct {
@@ -117,7 +121,9 @@ func NewImplantWidget(ip string) *ImplantWidget {
 		Alive:             false,
 		Detected_Interval: "",
 		Next_Command_Time: "",
-		command_history:   map[string][]string{"": {}},
+		command_history:   make(map[string]string),
+		commandChannel:    make(chan *pb.Command),
+		responseChannel:   make(chan *pb.Response),
 	}
 
 	return implantwidget
@@ -224,6 +230,7 @@ func (i *ImplantWidget) Tapped(_ *fyne.PointEvent) {
 		}
 		i.wind = fyne.CurrentApp().NewWindow(fmt.Sprintf("%s: Beacon Information", i.IP))
 		i.wind.SetContent(i.Build_Popup())
+		i.wind.Resize(i.wind.Content().MinSize())
 		i.wind.SetOnClosed(i.Close_Window)
 		i.wind.Show()
 	}()
@@ -254,34 +261,76 @@ func (i *ImplantWidget) Build_Popup() *fyne.Container {
 	i.btn_run_command = widget.NewButton("Run", i.Run_Command)
 	i.hands_on_container = container.NewBorder(nil, nil, lbl_run_command, i.btn_run_command, lbl_run_command, i.btn_run_command, i.command_entry)
 	i.hands_on_container.Hide()
-	i.command_history_tree = widget.NewTreeWithStrings(i.command_history)
-	command_output_container := container.NewBorder(nil, nil, nil, nil, i.command_history_tree)
+	i.command_history_accordian = widget.NewAccordion()
+	command_output_container := container.NewBorder(nil, nil, nil, nil, container.NewVScroll(i.command_history_accordian))
 	// This holds the run button to communicate with the beacon, it also shows beacon output.
 	command_container := container.NewBorder(nil, i.hands_on_container, nil, nil, i.hands_on_container, command_output_container)
 	max_con := container.NewBorder(nil, button_control_container, check_in_history_container, nil, button_control_container, check_in_history_container, command_container)
 	return max_con
 }
 
+func (i *ImplantWidget) ListenForResponse() {
+	if i.responseChannel == nil {
+		return
+	}
+	for resp := range i.responseChannel {
+		for _, accordian_item := range i.command_history_accordian.Items {
+			if item, good := accordian_item.Detail.(*widget.Label); good {
+				if accordian_item.Title == resp.RanCommand && item.Text == "Pending" {
+					new_title := time.Now().Format(time.UnixDate) + " - " + resp.RanCommand
+					i.command_history[new_title] = resp.Resp
+					accordian_item.Title = new_title
+					if len(resp.Resp) > 5000 {
+						item.Text = resp.Resp[0:5000]
+						item.Text += "\n\n.....................Truncated....................\n\nClick Export to view the full result"
+					} else {
+						item.Text = resp.Resp
+					}
+					break
+				}
+			}
+		}
+		i.command_history_accordian.Refresh()
+	}
+}
+
 func (i *ImplantWidget) Go_HandsOn() {
 	if i.hands_on_container.Hidden {
+		if i.commandChannel == nil {
+			i.commandChannel = make(chan *pb.Command)
+		}
+		if i.responseChannel == nil {
+			i.responseChannel = make(chan *pb.Response)
+		}
 		i.hands_on_container.Show()
 		i.btn_go_hands_on.Text = "Hands Off"
 		i.btn_go_hands_on.Importance = widget.HighImportance
+		go Start_Reverse_C2(i.commandChannel, i.responseChannel)
+		go i.ListenForResponse()
+
 	} else {
 		i.hands_on_container.Hide()
 		i.btn_go_hands_on.Text = "Go Hands On"
 		i.btn_go_hands_on.Importance = widget.MediumImportance
+		Stop_Reverse_C2()
 	}
 	i.btn_go_hands_on.Refresh()
 }
 
 func (i *ImplantWidget) Run_Command() {
 	fmt.Println("Running command: ", i.command_entry.Text)
-	i.command_history[""] = append(i.command_history[""], i.command_entry.Text)
-	i.command_history[i.command_entry.Text] = []string{"Pending..."}
-	i.command_history_tree.Refresh()
+	go func() {
+		i.commandChannel <- &pb.Command{
+			Cmd:        i.command_entry.Text,
+			SendResp:   true,
+			ShouldExit: false,
+		}
+	}()
+	i.command_history_accordian.Append(widget.NewAccordionItem(i.command_entry.Text, widget.NewLabel("Pending")))
+	i.command_history_accordian.Refresh()
 }
 
 func (i *ImplantWidget) Close_Window() {
+	Stop_Reverse_C2()
 	i.wind.Close()
 }
